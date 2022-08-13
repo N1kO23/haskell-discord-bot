@@ -36,6 +36,12 @@ import qualified Polysemy.Async as P
 import qualified Polysemy.State as P
 import System.Environment (getEnv)
 import TextShow
+import Calamity (Embed(author), Message (author), ExecuteWebhookOptions (avatarUrl))
+import GHC.IO.Device (IODevice(ready))
+import Calamity.Cache.Eff (getGuilds)
+import Calamity.Gateway
+import Data.Text.Lazy (append)
+import Calamity.Commands (CommandInvoked(ctx))
 
 data MyViewState = MyViewState
   { numOptions :: Int,
@@ -56,8 +62,21 @@ main = do
       . useConstantPrefix ">"
       . runBotIO (BotToken loginToken) defaultIntents
       $ do
+        DiP.info @T.Text "Setting up commands and handlers..."
+
+        react @'ReadyEvt $ \ready-> do
+          DiP.info @T.Text "The bot is ready!"
+          let activity = Activity "haskelling" Game Nothing Nothing Nothing (Just "Running on pure functional language like a boss") Nothing Nothing Nothing Nothing Nothing Nothing
+              curPrecense = StatusUpdateData Nothing [activity] Idle True
+          void $ sendPresence curPrecense
+
+
         react @'MessageUpdateEvt $ \(_oldMsg, newMsg, _usr, _member) -> do
           void . tell @T.Text newMsg $ "Hey! I saw what you edited!"
+
+        react @'MessageCreateEvt $ \(msg, _usr, _member) -> do
+          when ("Haskell" `T.isInfixOf` (msg ^. #content)) $ 
+            void . invoke $ CreateReaction msg msg (UnicodeEmoji "😍")
 
         addCommands $ do
           helpCommand
